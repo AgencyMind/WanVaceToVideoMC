@@ -1,0 +1,6 @@
+# WanVaceToVideoMC requirements
+# Note: This assumes ComfyUI is already installed with its dependencies
+# These are additional requirements specific to this custom node
+
+# No additional requirements needed - this node uses only ComfyUI's existing dependencies
+# ComfyUI provides: torch, numpy, and all other required libraries

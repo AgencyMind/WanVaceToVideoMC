@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-wanvacetovideo-mc"
+version = "1.0.0"
+description = "Multi-Control enhancement for WanVaceToVideo in ComfyUI"
+readme = "README.md"
+authors = [
+    { name = "jk, samizdat" }
+]
+license = { text = "AGPL-3.0-or-later" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.10"
+dependencies = []  # ComfyUI provides all required dependencies
+
+[project.urls]
+Homepage = "https://github.com/zerospace/WanVaceToVideoMC"
+Issues = "https://github.com/zerospace/WanVaceToVideoMC/issues"
+
+[tool.setuptools]
+packages = ["WanVaceToVideoMC"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "A", "C4", "SIM"]
+ignore = ["E501"]  # Line too long - handled by formatter
