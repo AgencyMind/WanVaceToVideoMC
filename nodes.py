@@ -7,7 +7,7 @@ import torch
 import comfy.utils
 import comfy.latent_formats
 import comfy.model_management
-from comfy import node_helpers
+import comfy.samplers
 from nodes import MAX_RESOLUTION
 from typing import Optional, Tuple, Dict, Any
 from .security import SecurityValidator, MemoryGuard
@@ -210,18 +210,30 @@ class WanVaceToVideoMultiControl:
             trim_latent = reference_image.shape[2]
 
         mask = mask.unsqueeze(0)
-        positive = node_helpers.conditioning_set_values(
-            positive, {"vace_frames": control_video_latent, "vace_mask": mask, "vace_strength": strength}
-        )
-        negative = node_helpers.conditioning_set_values(
-            negative, {"vace_frames": control_video_latent, "vace_mask": mask, "vace_strength": strength}
-        )
+        
+        # Update positive conditioning
+        positive_out = []
+        for cond in positive:
+            new_cond = cond[0].copy()
+            new_cond["vace_frames"] = control_video_latent
+            new_cond["vace_mask"] = mask
+            new_cond["vace_strength"] = strength
+            positive_out.append([new_cond, cond[1]])
+        
+        # Update negative conditioning
+        negative_out = []
+        for cond in negative:
+            new_cond = cond[0].copy()
+            new_cond["vace_frames"] = control_video_latent
+            new_cond["vace_mask"] = mask
+            new_cond["vace_strength"] = strength
+            negative_out.append([new_cond, cond[1]])
 
         latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8], 
                            device=comfy.model_management.intermediate_device())
         out_latent = {"samples": latent}
         
-        return (positive, negative, out_latent, trim_latent)
+        return (positive_out, negative_out, out_latent, trim_latent)
 
     def _encode_multi_control(self, positive, negative, vae, width, height, length, batch_size, 
                             strength, reference_image,
@@ -350,19 +362,30 @@ class WanVaceToVideoMultiControl:
         combined_mask = combined_mask.unsqueeze(0)
         
         # Update conditioning
-        positive = node_helpers.conditioning_set_values(
-            positive, {"vace_frames": control_video_latent, "vace_mask": combined_mask, "vace_strength": combined_strength}
-        )
-        negative = node_helpers.conditioning_set_values(
-            negative, {"vace_frames": control_video_latent, "vace_mask": combined_mask, "vace_strength": combined_strength}
-        )
+        # Update positive conditioning
+        positive_out = []
+        for cond in positive:
+            new_cond = cond[0].copy()
+            new_cond["vace_frames"] = control_video_latent
+            new_cond["vace_mask"] = combined_mask
+            new_cond["vace_strength"] = combined_strength
+            positive_out.append([new_cond, cond[1]])
+        
+        # Update negative conditioning
+        negative_out = []
+        for cond in negative:
+            new_cond = cond[0].copy()
+            new_cond["vace_frames"] = control_video_latent
+            new_cond["vace_mask"] = combined_mask
+            new_cond["vace_strength"] = combined_strength
+            negative_out.append([new_cond, cond[1]])
         
         # Create output latent
         latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8],
                            device=comfy.model_management.intermediate_device())
         out_latent = {"samples": latent}
         
-        return (positive, negative, out_latent, trim_latent)
+        return (positive_out, negative_out, out_latent, trim_latent)
 
 
 # Node registration
