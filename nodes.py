@@ -7,8 +7,8 @@ import torch
 import comfy.utils
 import comfy.latent_formats
 import comfy.model_management
-import comfy.samplers
 from nodes import MAX_RESOLUTION
+from node_helpers import conditioning_set_values
 from typing import Optional, Tuple, Dict, Any
 from .security import SecurityValidator, MemoryGuard
 
@@ -211,23 +211,18 @@ class WanVaceToVideoMultiControl:
 
         mask = mask.unsqueeze(0)
         
-        # Update positive conditioning
-        positive_out = []
-        for cond in positive:
-            new_cond = cond[0].copy()
-            new_cond["vace_frames"] = control_video_latent
-            new_cond["vace_mask"] = mask
-            new_cond["vace_strength"] = strength
-            positive_out.append([new_cond, cond[1]])
+        # Update conditioning with VACE parameters
+        positive_out = conditioning_set_values(positive, {
+            "vace_frames": control_video_latent,
+            "vace_mask": mask,
+            "vace_strength": strength
+        })
         
-        # Update negative conditioning
-        negative_out = []
-        for cond in negative:
-            new_cond = cond[0].copy()
-            new_cond["vace_frames"] = control_video_latent
-            new_cond["vace_mask"] = mask
-            new_cond["vace_strength"] = strength
-            negative_out.append([new_cond, cond[1]])
+        negative_out = conditioning_set_values(negative, {
+            "vace_frames": control_video_latent,
+            "vace_mask": mask,
+            "vace_strength": strength
+        })
 
         latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8], 
                            device=comfy.model_management.intermediate_device())
@@ -361,24 +356,18 @@ class WanVaceToVideoMultiControl:
         
         combined_mask = combined_mask.unsqueeze(0)
         
-        # Update conditioning
-        # Update positive conditioning
-        positive_out = []
-        for cond in positive:
-            new_cond = cond[0].copy()
-            new_cond["vace_frames"] = control_video_latent
-            new_cond["vace_mask"] = combined_mask
-            new_cond["vace_strength"] = combined_strength
-            positive_out.append([new_cond, cond[1]])
+        # Update conditioning with VACE parameters
+        positive_out = conditioning_set_values(positive, {
+            "vace_frames": control_video_latent,
+            "vace_mask": combined_mask,
+            "vace_strength": combined_strength
+        })
         
-        # Update negative conditioning
-        negative_out = []
-        for cond in negative:
-            new_cond = cond[0].copy()
-            new_cond["vace_frames"] = control_video_latent
-            new_cond["vace_mask"] = combined_mask
-            new_cond["vace_strength"] = combined_strength
-            negative_out.append([new_cond, cond[1]])
+        negative_out = conditioning_set_values(negative, {
+            "vace_frames": control_video_latent,
+            "vace_mask": combined_mask,
+            "vace_strength": combined_strength
+        })
         
         # Create output latent
         latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8],
