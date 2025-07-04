@@ -9,13 +9,7 @@ try:
 except ImportError:
     pass
 else:
-    try:
-        from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
-        print(f"[WanVaceToVideoMC] Successfully loaded with {len(NODE_CLASS_MAPPINGS)} nodes")
-    except ImportError as e:
-        print(f"[WanVaceToVideoMC] Failed to import nodes: {e}")
-        NODE_CLASS_MAPPINGS = {}
-        NODE_DISPLAY_NAME_MAPPINGS = {}
-
-__version__ = "1.0.0"
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
+    from .nodes import NODE_CLASS_MAPPINGS
+    NODE_DISPLAY_NAME_MAPPINGS = {k: v.TITLE for k, v in NODE_CLASS_MAPPINGS.items()}
+    print(f"[WanVaceToVideoMC] Successfully loaded with {len(NODE_CLASS_MAPPINGS)} nodes")
+    __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -19,6 +19,8 @@ class WanVaceToVideoMultiControl:
     Maintains full backward compatibility with the original node.
     """
     
+    TITLE = "WAN VACE to Video (Multi-Control)"
+    
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
         return {
@@ -65,7 +67,6 @@ class WanVaceToVideoMultiControl:
     RETURN_NAMES = ("positive", "negative", "latent", "trim_latent")
     FUNCTION = "encode"
     CATEGORY = "conditioning/video_models"
-    EXPERIMENTAL = True
 
     def encode(self, positive, negative, vae, width, height, length, batch_size, strength,
                control_video=None, control_masks=None, reference_image=None,
