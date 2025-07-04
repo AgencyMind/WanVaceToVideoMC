@@ -7,8 +7,8 @@ import torch
 import comfy.utils
 import comfy.latent_formats
 import comfy.model_management
-from nodes import MAX_RESOLUTION
 from comfy import node_helpers
+from nodes import MAX_RESOLUTION
 from typing import Optional, Tuple, Dict, Any
 from .security import SecurityValidator, MemoryGuard
 
