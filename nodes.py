@@ -185,9 +185,13 @@ class WanVaceToVideoMultiControl:
         inactive = (control_video * (1 - mask)) + 0.5
         reactive = (control_video * mask) + 0.5
 
-        inactive = vae.encode(inactive[:, :, :, :3])
-        reactive = vae.encode(reactive[:, :, :, :3])
-        control_video_latent = torch.cat((inactive, reactive), dim=1)
+        # Encode with VAE - the output should be latent representations
+        inactive_encoded = vae.encode(inactive[:, :, :, :3])
+        reactive_encoded = vae.encode(reactive[:, :, :, :3])
+        
+        # VACE expects inactive and reactive concatenated along channel dimension
+        # This gives us 32 channels (16 + 16) which matches the error message
+        control_video_latent = torch.cat((inactive_encoded, reactive_encoded), dim=1)
         
         if reference_image is not None:
             control_video_latent = torch.cat((reference_image, control_video_latent), dim=2)
@@ -224,7 +228,8 @@ class WanVaceToVideoMultiControl:
             "vace_strength": strength
         })
 
-        latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8], 
+        # VACE uses 32 latent channels
+        latent = torch.zeros([batch_size, 32, latent_length, height // 8, width // 8], 
                            device=comfy.model_management.intermediate_device())
         out_latent = {"samples": latent}
         
@@ -302,6 +307,7 @@ class WanVaceToVideoMultiControl:
                 inactive_latent = inactive_latent * video_strength
                 reactive_latent = reactive_latent * video_strength
                 
+                # VACE expects concatenation along channel dimension
                 control_latent = torch.cat((inactive_latent, reactive_latent), dim=1)
                 
                 control_latents.append(control_latent)
@@ -311,7 +317,9 @@ class WanVaceToVideoMultiControl:
         # Combine multiple controls
         if not control_latents:
             # No controls provided, create default
-            control_video_latent = torch.zeros((2, height // 8, width // 8, 16), 
+            # Shape should be (2, frames, channels, height, width) where 2 is for inactive/reactive
+            # VACE appears to use 32 channels based on the error
+            control_video_latent = torch.zeros((2, latent_length, 32, height // 8, width // 8), 
                                              device=comfy.model_management.intermediate_device())
             combined_mask = torch.ones((length, height, width, 1))
             combined_strength = strength
@@ -369,8 +377,8 @@ class WanVaceToVideoMultiControl:
             "vace_strength": combined_strength
         })
         
-        # Create output latent
-        latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8],
+        # Create output latent - VACE uses 32 channels
+        latent = torch.zeros([batch_size, 32, latent_length, height // 8, width // 8],
                            device=comfy.model_management.intermediate_device())
         out_latent = {"samples": latent}
         
