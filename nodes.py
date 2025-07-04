@@ -189,9 +189,10 @@ class WanVaceToVideoMultiControl:
         inactive_encoded = vae.encode(inactive[:, :, :, :3])
         reactive_encoded = vae.encode(reactive[:, :, :, :3])
         
-        # VACE expects inactive and reactive concatenated along channel dimension
-        # This gives us 32 channels (16 + 16) which matches the error message
-        control_video_latent = torch.cat((inactive_encoded, reactive_encoded), dim=1)
+        # Based on the error, the model processes in chunks of 16 channels
+        # We need to stack inactive/reactive differently, not concatenate channels
+        # Create shape (2, frames, channels, height, width) where 2 is for inactive/reactive
+        control_video_latent = torch.stack((inactive_encoded, reactive_encoded), dim=0)
         
         if reference_image is not None:
             control_video_latent = torch.cat((reference_image, control_video_latent), dim=2)
@@ -228,8 +229,8 @@ class WanVaceToVideoMultiControl:
             "vace_strength": strength
         })
 
-        # VACE uses 32 latent channels
-        latent = torch.zeros([batch_size, 32, latent_length, height // 8, width // 8], 
+        # WAN21_Vace uses 16 latent channels
+        latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8], 
                            device=comfy.model_management.intermediate_device())
         out_latent = {"samples": latent}
         
@@ -307,8 +308,8 @@ class WanVaceToVideoMultiControl:
                 inactive_latent = inactive_latent * video_strength
                 reactive_latent = reactive_latent * video_strength
                 
-                # VACE expects concatenation along channel dimension
-                control_latent = torch.cat((inactive_latent, reactive_latent), dim=1)
+                # Stack inactive/reactive, not concatenate channels
+                control_latent = torch.stack((inactive_latent, reactive_latent), dim=0)
                 
                 control_latents.append(control_latent)
                 control_masks.append(mask)
@@ -318,8 +319,7 @@ class WanVaceToVideoMultiControl:
         if not control_latents:
             # No controls provided, create default
             # Shape should be (2, frames, channels, height, width) where 2 is for inactive/reactive
-            # VACE appears to use 32 channels based on the error
-            control_video_latent = torch.zeros((2, latent_length, 32, height // 8, width // 8), 
+            control_video_latent = torch.zeros((2, latent_length, 16, height // 8, width // 8), 
                                              device=comfy.model_management.intermediate_device())
             combined_mask = torch.ones((length, height, width, 1))
             combined_strength = strength
@@ -377,8 +377,8 @@ class WanVaceToVideoMultiControl:
             "vace_strength": combined_strength
         })
         
-        # Create output latent - VACE uses 32 channels
-        latent = torch.zeros([batch_size, 32, latent_length, height // 8, width // 8],
+        # Create output latent - use 16 channels to match model expectation
+        latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8],
                            device=comfy.model_management.intermediate_device())
         out_latent = {"samples": latent}
         
