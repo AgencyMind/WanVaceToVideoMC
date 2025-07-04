@@ -189,10 +189,8 @@ class WanVaceToVideoMultiControl:
         inactive_encoded = vae.encode(inactive[:, :, :, :3])
         reactive_encoded = vae.encode(reactive[:, :, :, :3])
         
-        # Based on the error, the model processes in chunks of 16 channels
-        # We need to stack inactive/reactive differently, not concatenate channels
-        # Create shape (2, frames, channels, height, width) where 2 is for inactive/reactive
-        control_video_latent = torch.stack((inactive_encoded, reactive_encoded), dim=0)
+        # Match the original implementation - concatenate along channel dimension
+        control_video_latent = torch.cat((inactive_encoded, reactive_encoded), dim=1)
         
         if reference_image is not None:
             control_video_latent = torch.cat((reference_image, control_video_latent), dim=2)
@@ -216,18 +214,18 @@ class WanVaceToVideoMultiControl:
 
         mask = mask.unsqueeze(0)
         
-        # Update conditioning with VACE parameters
+        # Update conditioning with VACE parameters - wrap values in lists and use append=True
         positive_out = conditioning_set_values(positive, {
-            "vace_frames": control_video_latent,
-            "vace_mask": mask,
-            "vace_strength": strength
-        })
+            "vace_frames": [control_video_latent],
+            "vace_mask": [mask],
+            "vace_strength": [strength]
+        }, append=True)
         
         negative_out = conditioning_set_values(negative, {
-            "vace_frames": control_video_latent,
-            "vace_mask": mask,
-            "vace_strength": strength
-        })
+            "vace_frames": [control_video_latent],
+            "vace_mask": [mask],
+            "vace_strength": [strength]
+        }, append=True)
 
         # WAN21_Vace uses 16 latent channels
         latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8], 
@@ -308,8 +306,8 @@ class WanVaceToVideoMultiControl:
                 inactive_latent = inactive_latent * video_strength
                 reactive_latent = reactive_latent * video_strength
                 
-                # Stack inactive/reactive, not concatenate channels
-                control_latent = torch.stack((inactive_latent, reactive_latent), dim=0)
+                # Concatenate inactive/reactive along channel dimension to match original
+                control_latent = torch.cat((inactive_latent, reactive_latent), dim=1)
                 
                 control_latents.append(control_latent)
                 control_masks.append(mask)
@@ -317,14 +315,14 @@ class WanVaceToVideoMultiControl:
         
         # Combine multiple controls
         if not control_latents:
-            # No controls provided, create default
-            # Shape should be (2, frames, channels, height, width) where 2 is for inactive/reactive
-            control_video_latent = torch.zeros((2, latent_length, 16, height // 8, width // 8), 
+            # No controls provided, create default latent with 32 channels (16 inactive + 16 reactive)
+            control_video_latent = torch.zeros((batch_size, 32, latent_length, height // 8, width // 8), 
                                              device=comfy.model_management.intermediate_device())
             combined_mask = torch.ones((length, height, width, 1))
             combined_strength = strength
         else:
             # Combine control latents based on mode
+            # All control_latents are shape (batch, 32, frames, h, w) where 32 = 16 inactive + 16 reactive
             if multi_control_mode == "multiply":
                 control_video_latent = control_latents[0]
                 for latent in control_latents[1:]:
@@ -364,18 +362,18 @@ class WanVaceToVideoMultiControl:
         
         combined_mask = combined_mask.unsqueeze(0)
         
-        # Update conditioning with VACE parameters
+        # Update conditioning with VACE parameters - wrap values in lists and use append=True
         positive_out = conditioning_set_values(positive, {
-            "vace_frames": control_video_latent,
-            "vace_mask": combined_mask,
-            "vace_strength": combined_strength
-        })
+            "vace_frames": [control_video_latent],
+            "vace_mask": [combined_mask],
+            "vace_strength": [combined_strength]
+        }, append=True)
         
         negative_out = conditioning_set_values(negative, {
-            "vace_frames": control_video_latent,
-            "vace_mask": combined_mask,
-            "vace_strength": combined_strength
-        })
+            "vace_frames": [control_video_latent],
+            "vace_mask": [combined_mask],
+            "vace_strength": [combined_strength]
+        }, append=True)
         
         # Create output latent - use 16 channels to match model expectation
         latent = torch.zeros([batch_size, 16, latent_length, height // 8, width // 8],
