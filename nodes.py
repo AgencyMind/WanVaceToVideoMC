@@ -305,35 +305,34 @@ class WanVaceToVideoMultiControl:
                 control_strengths.append(video_strength)
                 video_strengths.append(video_strength)
         
-        # Now do a single batched VAE encoding if we have any controls
+        # Process VAE encoding for each control type
         control_latents = []
         if inactive_tensors:
-            # Concatenate all tensors for a single batched encode
-            all_tensors = inactive_tensors + reactive_tensors
-            concatenated = torch.cat(all_tensors, dim=0)
-            
-            try:
-                # Single batched VAE encode
-                all_latents = vae.encode(concatenated)
-            except Exception as e:
-                raise RuntimeError(f"VAE encoding failed: {str(e)}")
-            
-            # Split the results back
-            num_controls = len(inactive_tensors)
-            # Get the batch size from the first tensor to calculate split sizes
-            batch_size = inactive_tensors[0].shape[0]
-            # Create a list of split sizes - each control has batch_size frames
-            split_sizes = [batch_size] * (num_controls * 2)
-            latent_chunks = torch.split(all_latents, split_sizes, dim=0)
-            
-            # Reconstruct control latents with proper strength application
-            for i in range(num_controls):
-                inactive_latent = latent_chunks[i] * video_strengths[i]
-                reactive_latent = latent_chunks[i + num_controls] * video_strengths[i]
+            # Process each control's inactive/reactive pair together to reduce VAE calls
+            for i in range(len(inactive_tensors)):
+                inactive = inactive_tensors[i]
+                reactive = reactive_tensors[i]
                 
-                # Concatenate inactive/reactive along channel dimension to match original
-                control_latent = torch.cat((inactive_latent, reactive_latent), dim=1)
-                control_latents.append(control_latent)
+                try:
+                    # Concatenate inactive and reactive for this control
+                    control_pair = torch.cat([inactive, reactive], dim=0)
+                    # Single VAE encode for both inactive and reactive of this control
+                    encoded_pair = vae.encode(control_pair)
+                    
+                    # Split back into inactive and reactive
+                    batch_size = inactive.shape[0]
+                    inactive_latent, reactive_latent = torch.split(encoded_pair, [batch_size, batch_size], dim=0)
+                    
+                    # Apply video strength
+                    inactive_latent = inactive_latent * video_strengths[i]
+                    reactive_latent = reactive_latent * video_strengths[i]
+                    
+                    # Concatenate inactive/reactive along channel dimension to match original
+                    control_latent = torch.cat((inactive_latent, reactive_latent), dim=1)
+                    control_latents.append(control_latent)
+                    
+                except Exception as e:
+                    raise RuntimeError(f"VAE encoding failed for control {i}: {str(e)}")
         
         # Combine multiple controls
         if not control_latents:
