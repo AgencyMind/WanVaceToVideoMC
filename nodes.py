@@ -256,10 +256,12 @@ class WanVaceToVideoMultiControl:
                 comfy.latent_formats.Wan21().process_out(torch.zeros_like(reference_latent))
             ], dim=1)
         
-        # Process each control type
-        control_latents = []
+        # Process each control type - collect all tensors first
+        inactive_tensors = []
+        reactive_tensors = []
         control_masks = []
         control_strengths = []
+        video_strengths = []
         
         for control_video, control_mask, video_strength, mask_strength in [
             (control_video_pose, control_masks_pose, strength_video_pose, strength_mask_pose),
@@ -291,27 +293,43 @@ class WanVaceToVideoMultiControl:
                 # Apply mask strength
                 mask = mask * mask_strength
                 
-                # Encode with VAE
+                # Prepare tensors for VAE encoding (but don't encode yet)
                 control_video = control_video - 0.5
                 inactive = (control_video * (1 - mask)) + 0.5
                 reactive = (control_video * mask) + 0.5
                 
-                try:
-                    inactive_latent = vae.encode(inactive[:, :, :, :3])
-                    reactive_latent = vae.encode(reactive[:, :, :, :3])
-                except Exception as e:
-                    raise RuntimeError(f"VAE encoding failed: {str(e)}")
-                
-                # Apply video strength
-                inactive_latent = inactive_latent * video_strength
-                reactive_latent = reactive_latent * video_strength
+                # Collect tensors for batched encoding
+                inactive_tensors.append(inactive[:, :, :, :3])
+                reactive_tensors.append(reactive[:, :, :, :3])
+                control_masks.append(mask)
+                control_strengths.append(video_strength)
+                video_strengths.append(video_strength)
+        
+        # Now do a single batched VAE encoding if we have any controls
+        control_latents = []
+        if inactive_tensors:
+            # Concatenate all tensors for a single batched encode
+            all_tensors = inactive_tensors + reactive_tensors
+            concatenated = torch.cat(all_tensors, dim=0)
+            
+            try:
+                # Single batched VAE encode
+                all_latents = vae.encode(concatenated)
+            except Exception as e:
+                raise RuntimeError(f"VAE encoding failed: {str(e)}")
+            
+            # Split the results back
+            num_controls = len(inactive_tensors)
+            latent_chunks = torch.chunk(all_latents, num_controls * 2, dim=0)
+            
+            # Reconstruct control latents with proper strength application
+            for i in range(num_controls):
+                inactive_latent = latent_chunks[i] * video_strengths[i]
+                reactive_latent = latent_chunks[i + num_controls] * video_strengths[i]
                 
                 # Concatenate inactive/reactive along channel dimension to match original
                 control_latent = torch.cat((inactive_latent, reactive_latent), dim=1)
-                
                 control_latents.append(control_latent)
-                control_masks.append(mask)
-                control_strengths.append(video_strength)
         
         # Combine multiple controls
         if not control_latents:
