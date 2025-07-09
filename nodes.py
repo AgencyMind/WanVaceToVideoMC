@@ -320,7 +320,11 @@ class WanVaceToVideoMultiControl:
             
             # Split the results back
             num_controls = len(inactive_tensors)
-            latent_chunks = torch.chunk(all_latents, num_controls * 2, dim=0)
+            # Get the batch size from the first tensor to calculate split sizes
+            batch_size = inactive_tensors[0].shape[0]
+            # Create a list of split sizes - each control has batch_size frames
+            split_sizes = [batch_size] * (num_controls * 2)
+            latent_chunks = torch.split(all_latents, split_sizes, dim=0)
             
             # Reconstruct control latents with proper strength application
             for i in range(num_controls):
