@@ -304,8 +304,15 @@ class WanVaceToVideoMultiControl:
                 control_masks.append(mask)
                 control_strengths.append(video_strength)
                 video_strengths.append(video_strength)
-        
-        # Process each control's inactive/reactive pair separately to avoid VAE batch size limits
+
+
+        # Process VAE encoding for each control type
+
+        control_latents = []
+
+        if inactive_tensors:
+            
+            # Process each control's inactive/reactive pair separately to avoid VAE batch size limits
             for i in range(len(inactive_tensors)):
                 inactive = inactive_tensors[i]
                 reactive = reactive_tensors[i]
