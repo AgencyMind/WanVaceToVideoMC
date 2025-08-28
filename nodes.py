@@ -305,23 +305,15 @@ class WanVaceToVideoMultiControl:
                 control_strengths.append(video_strength)
                 video_strengths.append(video_strength)
         
-        # Process VAE encoding for each control type
-        control_latents = []
-        if inactive_tensors:
-            # Process each control's inactive/reactive pair together to reduce VAE calls
+        # Process each control's inactive/reactive pair separately to avoid VAE batch size limits
             for i in range(len(inactive_tensors)):
                 inactive = inactive_tensors[i]
                 reactive = reactive_tensors[i]
                 
                 try:
-                    # Concatenate inactive and reactive for this control
-                    control_pair = torch.cat([inactive, reactive], dim=0)
-                    # Single VAE encode for both inactive and reactive of this control
-                    encoded_pair = vae.encode(control_pair)
-                    
-                    # Split back into inactive and reactive
-                    batch_size = inactive.shape[0]
-                    inactive_latent, reactive_latent = torch.split(encoded_pair, [batch_size, batch_size], dim=0)
+                    # Encode inactive and reactive separately to avoid VAE batch size issues
+                    inactive_latent = vae.encode(inactive[:, :, :, :3])
+                    reactive_latent = vae.encode(reactive[:, :, :, :3])
                     
                     # Apply video strength
                     inactive_latent = inactive_latent * video_strengths[i]
